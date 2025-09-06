@@ -1,10 +1,22 @@
 from flask import Flask,request,jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+from flask_login import UserMixin 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
 
 db = SQLAlchemy(app)
+# Outros sistemas possam acessar o meu sistema 
+CORS(app)
+
+# Classe usuario responsável pelo acesso a app
+# User(ida, username, password)
+class user(db.Model, db.UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False, unique=True)
+    password = db.Column(db.String(80), nullable=True)
+
 
 #modelagem 
 #Produtos (id, nome, price, description)
@@ -25,6 +37,7 @@ def add_product():
         db.session.commit()
         return jsonify({"message":"Produto cadastrado com sucesso!!"})
     return jsonify({"message":"Invalid product invalid"}),400
+
 @app.route('/api/products/delete/<int:product_id>', methods=["DELETE"])
 def delete_product(product_id):
     product = Product.query.get(product_id)
@@ -34,6 +47,52 @@ def delete_product(product_id):
         return jsonify({"message":"Produto deletado com sucesso!!"})
     return jsonify({"message":"Product not found"}),404
 
+@app.router('/api/products/<int:product_id>', methods=['GET'])
+def get_product_detail(product_id):
+    product = Product.query.get(product_id)
+    if product:
+        return jsonify({
+            "id": product.id,
+            "name":product.name,
+            "price":product.price,
+            "description":product.description,
+        })
+    return jsonify({'message': 'Product no found'}), 404
+        
+@app.router('/api/products/update/<int:product_id>', methods=["PUT"])
+def update_product(product_id):
+    product= Product.query.get(product_id)
+    if not product:
+        return jsonify({"message":"Product not Found"}),404
+    data = request.json
+    if'name' in data:
+        product.name = data['name'] 
+    
+    if'price' in data:
+        product.price = data['price']
+             
+    if 'description' in data:
+        product.description = data["description"]
+    db.session.commit()    
+    return jsonify({"message":"Product update successfully"})   
+ 
+@app.router('/api/products', methods=['GET'])
+def get_products():
+    products = Product.query.all()
+    product_list = []
+    for product in products:
+        product_data = ({
+            "id": product.id,
+            "name":product.name,
+            "price":product.price,
+            "description":product.description,
+        })
+        product_list.append(product_data)
+    
+    return jsonify(product_list)     
+
+
+          
 @app.route('/')
 def hello_world():
     return 'Hello World!!'
